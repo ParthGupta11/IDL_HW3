@@ -15,12 +15,13 @@ class RNNPhonemeClassifier(object):
         self.num_layers = num_layers
 
         # TODO: Understand then uncomment this code :)
-        # self.rnn = [
-        #     RNNCell(input_size, hidden_size) if i == 0 
-        #         else RNNCell(hidden_size, hidden_size)
-        #             for i in range(num_layers)
-        # ]
-        # self.output_layer = Linear(hidden_size, output_size)
+        self.rnn = [
+            RNNCell(input_size, hidden_size)
+            if i == 0
+            else RNNCell(hidden_size, hidden_size)
+            for i in range(num_layers)
+        ]
+        self.output_layer = Linear(hidden_size, output_size)
 
         # store hidden states at each time step, [(seq_len+1) * (num_layers, batch_size, hidden_size)]
         self.hiddens = []
@@ -57,16 +58,18 @@ class RNNPhonemeClassifier(object):
             Initial hidden states. Defaults to zeros if not specified
         -------
         Returns
-        logits: (batch_size, output_size) 
+        logits: (batch_size, output_size)
 
         Output (y): logits
 
         """
         # Get the batch size and sequence length, and initialize the hidden
-        # vectors given the paramters.
+        # vectors given the parameters.
         batch_size, seq_len = x.shape[0], x.shape[1]
         if h_0 is None:
-            hidden = np.zeros((self.num_layers, batch_size, self.hidden_size), dtype=float)
+            hidden = np.zeros(
+                (self.num_layers, batch_size, self.hidden_size), dtype=float
+            )
         else:
             hidden = h_0
 
@@ -82,14 +85,27 @@ class RNNPhonemeClassifier(object):
         #       Run the rnn cell with the correct parameters and update
         #       the parameters as needed. Update hidden.
         #   Similar to above, append a copy of the current hidden array to the hiddens list
-        
+
         # TODO
+        for t in range(1, seq_len + 1):
+            x_t = x[:, t - 1, :]
+            h_prev_l = x_t
+            hiddens_t = np.zeros((self.num_layers, batch_size, self.hidden_size))
+            for l in range(self.num_layers):
+                rnn_cell = self.rnn[l]
+                h_prev_t = self.hiddens[t - 1][l, :, :]  # h at previous time step
+                h_new = rnn_cell(h_prev_l, h_prev_t)
+                h_prev_l = h_new
+                hiddens_t[l, :, :] = h_new
+
+            self.hiddens.append(hiddens_t.copy())
 
         # Get the outputs from the last time step using the linear layer and return it
         # <--------------------------
-        
-        # return logits 
-        raise NotImplementedError
+        logits = self.output_layer(self.hiddens[-1][-1, :, :])
+
+        # return logits
+        return logits
 
     def backward(self, delta):
         """RNN Back Propagation Through Time (BPTT).
