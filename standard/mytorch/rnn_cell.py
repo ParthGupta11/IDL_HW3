@@ -6,7 +6,6 @@ class RNNCell(object):
     """RNN Cell class."""
 
     def __init__(self, input_size, hidden_size):
-
         self.input_size = input_size
         self.hidden_size = hidden_size
 
@@ -62,13 +61,14 @@ class RNNCell(object):
         h_t: (batch_size, hidden_size)
             hidden state at the current time step and current layer
         """
-    
+
         """ ht = tanh(Wihxt + bih + Whhht−1 + bhh) """
 
-        # TODO
-
-        # return h_t
-        raise NotImplementedError
+        z_i = np.dot(x, self.W_ih.T) + self.b_ih
+        z_h = np.dot(h_prev_t, self.W_hh.T) + self.b_hh
+        z = z_i + z_h
+        h_t = self.activation.forward(z)
+        return h_t
 
     def backward(self, delta, h_t, h_prev_l, h_prev_t):
         """
@@ -76,7 +76,7 @@ class RNNCell(object):
 
         -----
         Input (see writeup for explanation)
-        
+
         delta: (batch_size, hidden_size)
                 Gradient w.r.t the current hidden layer
 
@@ -103,18 +103,17 @@ class RNNCell(object):
         # 0) Done! Step backward through the tanh activation function.
         # Note, because of BPTT, we had to externally save the tanh state, and
         # have modified the tanh activation function to accept an optionally input.
-        dz = None  # TODO
+        dz = self.activation.backward(delta, state=h_t)
 
         # 1) Compute the averaged gradients of the weights and biases
-        self.dW_ih += None  # TODO
-        self.dW_hh += None  # TODO
-        self.db_ih += None  # TODO
-        self.db_hh += None  # TODO
+        self.dW_ih += np.dot(dz.T, h_prev_l) / batch_size
+        self.dW_hh += np.dot(dz.T, h_prev_t) / batch_size
+        self.db_ih += np.sum(dz, axis=0) / batch_size
+        self.db_hh += np.sum(dz, axis=0) / batch_size
 
         # # 2) Compute dx, dh_prev_t
-        dx = None  # TODO
-        dh_prev_t = None  # TODO
+        dx = np.dot(dz, self.W_ih)  # TODO
+        dh_prev_t = np.dot(dz, self.W_hh)  # TODO
 
         # 3) Return dx, dh_prev_t
-        # return dx, dh_prev_t
-        raise NotImplementedError
+        return dx, dh_prev_t
