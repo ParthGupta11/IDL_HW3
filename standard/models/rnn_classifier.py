@@ -124,7 +124,7 @@ class RNNPhonemeClassifier(object):
         gradient w.r.t. the initial hidden states
 
         """
-        # Initilizations
+        # Initializations
         batch_size, seq_len = self.x.shape[0], self.x.shape[1]
         dh = np.zeros((self.num_layers, batch_size, self.hidden_size), dtype=float)
         dh[-1] = self.output_layer.backward(delta)
@@ -153,7 +153,19 @@ class RNNPhonemeClassifier(object):
         Tip: You may or may not require += at places. Think about it and code
 
         """
-        # TODO
+        for t in range(seq_len - 1, -1, -1):
+            for l in range(self.num_layers - 1, -1, -1):
+                h_prev_l = (
+                    self.hiddens[t + 1][l - 1, :, :] if l > 0 else self.x[:, t, :]
+                )
+                h_t = self.hiddens[t + 1][l, :, :]
+                h_prev_t = self.hiddens[t][l, :, :]
+                delta = dh[l]
+                dh_prev_l, dh_prev_t = self.rnn[l].backward(
+                    delta, h_t, h_prev_l, h_prev_t
+                )
+                dh[l] = dh_prev_t
+                if l > 0:
+                    dh[l - 1] += dh_prev_l
 
-        # return dh / batch_size
-        raise NotImplementedError
+        return dh / batch_size
