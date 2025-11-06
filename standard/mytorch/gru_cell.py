@@ -148,8 +148,58 @@ class GRUCell(object):
         # Make sure the shapes of the calculated dWs and dbs  match the
         # initalized shapes accordingly
 
+        # Backward from h_t
+        dz = delta * (-self.n + self.hidden)
+        dn = delta * (1 - self.z)
+
+        # Backward from n
+        self.dWnx += (
+            self.h_act.backward(dn, self.n).reshape(-1, 1) @ self.x.reshape(-1, 1).T
+        )
+        self.dbnx += self.h_act.backward(dn, self.n)
+
+        dr = self.h_act.backward(dn, self.n) * (self.Wnh @ self.hidden + self.bnh)
+        self.dWnh += self.h_act.backward(dn, self.n).reshape(-1, 1) * (
+            self.r.reshape(-1, 1) @ self.hidden.reshape(-1, 1).T
+        )
+        self.dbnh += self.h_act.backward(dn, self.n) * self.r
+
+        # Backward from z
+        self.dWzx += self.z_act.backward(dz).reshape(-1, 1) @ self.x.reshape(-1, 1).T
+        self.dbzx += self.z_act.backward(dz)
+
+        self.dWzh += (
+            self.z_act.backward(dz).reshape(-1, 1) @ self.hidden.reshape(-1, 1).T
+        )
+        self.dbzh += self.z_act.backward(dz)
+
+        # Backward from r
+        self.dWrx += (self.r_act.backward(dr)).reshape(-1, 1) @ self.x.reshape(-1, 1).T
+
+        self.dbrx += self.r_act.backward(dr)
+
+        self.dWrh += (
+            self.r_act.backward(dr).reshape(-1, 1) @ self.hidden.reshape(-1, 1).T
+        )
+        self.dbrh += self.r_act.backward(dr)
+
+        # Compute dx and dh_prev_t
+        dx = (
+            self.Wnx.T @ (self.h_act.backward(dn)).reshape(-1, 1)
+            + self.Wrx.T @ (self.r_act.backward(dr)).reshape(-1, 1)
+            + self.Wzx.T @ (self.z_act.backward(dz)).reshape(-1, 1)
+        )
+        dx = dx.flatten()
+
+        dh_prev_t = (
+            (delta * self.z).reshape(-1, 1)
+            + self.Wnh.T @ (self.h_act.backward(dn, self.n) * self.r).reshape(-1, 1)
+            + self.Wrh.T @ (self.r_act.backward(dr)).reshape(-1, 1)
+            + self.Wzh.T @ (self.z_act.backward(dz)).reshape(-1, 1)
+        )
+        dh_prev_t = dh_prev_t.flatten()
+
         assert dx.shape == (self.d,)
         assert dh_prev_t.shape == (self.h,)
 
-        # return dx, dh_prev_t
-        raise NotImplementedError
+        return dx, dh_prev_t
