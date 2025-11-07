@@ -388,7 +388,14 @@ class CTCLoss(object):
             # -------------------------------------------->
             # TODO
             # <---------------------------------------------
-            pass
+            alpha = self.ctc.get_forward_probs(logit, extended, _)
+            beta = self.ctc.get_backward_probs(logit, extended, _)
+            gamma = self.ctc.get_posterior_probs(alpha, beta)
 
-        # return dY
-        raise NotImplementedError
+            for t in range(self.input_lengths[batch_itr]):
+                for s in range(len(extended)):
+                    dY[t, batch_itr, extended[s]] += -(
+                        gamma[t][s] / (logit[t][extended[s]] + 1e-7)
+                    )
+
+        return dY
