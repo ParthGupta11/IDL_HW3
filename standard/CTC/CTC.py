@@ -2,7 +2,6 @@ import numpy as np
 
 
 class CTC(object):
-
     def __init__(self, BLANK=0):
         """
         Initialize instance variables
@@ -41,7 +40,7 @@ class CTC(object):
             extended_symbols.append(self.BLANK)
 
         N = len(extended_symbols)
-        
+
         # -------------------------------------------->
         # TODO
         # <---------------------------------------------
@@ -53,8 +52,14 @@ class CTC(object):
         # Consider the conditions under which a 'skip' is allowed in the extended symbol sequence.
         # <---------------------------------------------
 
-        # return extended_symbols, skip_connect
-        raise NotImplementedError
+        skip_connect = np.zeros(N, dtype=np.int8)
+        for i in range(N - 1, -1, -1):
+            if i % 2 == 0:  # Blank positions
+                skip_connect[i] = 0
+            elif i >= 2 and extended_symbols[i] != extended_symbols[i - 2]:
+                skip_connect[i] = 1
+
+        return extended_symbols, skip_connect
 
     def get_forward_probs(self, logits, extended_symbols, skip_connect):
         """Compute forward probabilities.
@@ -85,11 +90,11 @@ class CTC(object):
 
         # -------------------------------------------->
         # TODO: Initialize the starting probabilities for the first time step.
-		# TODO: Intialize alpha[0][0]
-		# TODO: Intialize alpha[0][1]
+        # TODO: Intialize alpha[0][0]
+        # TODO: Intialize alpha[0][1]
         # This involves setting the initial values for the first two extended symbols.
         #
-		# TODO: Compute all values for alpha[t][sym] where 1 <= t < T and 1 <= sym < S (assuming zero-indexing)
+        # TODO: Compute all values for alpha[t][sym] where 1 <= t < T and 1 <= sym < S (assuming zero-indexing)
         # TODO: Implement the iterative computation for `alpha` values across all subsequent time steps.
         # IMP: Remember to check for skipConnect when calculating alpha
         # For each `alpha[t][sym]`, consider the possible paths from the previous time step `t-1`.
@@ -186,7 +191,6 @@ class CTC(object):
 
 
 class CTCLoss(object):
-
     def __init__(self, BLANK=0):
         """
         Initialize instance variables
@@ -206,7 +210,6 @@ class CTCLoss(object):
         # <---------------------------------------------
 
     def __call__(self, logits, target, input_lengths, target_lengths):
-
         # No need to modify
         return self.forward(logits, target, input_lengths, target_lengths)
 
@@ -280,7 +283,7 @@ class CTCLoss(object):
         """
         CTC loss backard
 
-        Calculate the gradients w.r.t the parameters and return the derivative 
+        Calculate the gradients w.r.t the parameters and return the derivative
         w.r.t the inputs, xt and ht, to the cell.
 
         Input
@@ -313,15 +316,14 @@ class CTCLoss(object):
             # Computing CTC Derivative for single batch
             # Process:
             #     Truncate the target to target length
-            target = self.target[batch_itr][:self.target_lengths[batch_itr]]
+            target = self.target[batch_itr][: self.target_lengths[batch_itr]]
             #     Truncate the logits to input length
-            logit = self.logits[:self.input_lengths[batch_itr], batch_itr]
+            logit = self.logits[: self.input_lengths[batch_itr], batch_itr]
             #     Extend target sequence with blank
             extended, _ = self.ctc.extend_target_with_blank(target)
             #     Compute derivative of divergence and store them in dY
-            
+
             # <---------------------------------------------
-            
 
             # -------------------------------------------->
             # TODO
