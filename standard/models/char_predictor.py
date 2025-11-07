@@ -18,10 +18,10 @@ class CharacterPredictor(object):
     def __init__(self, input_dim, hidden_dim, num_classes):
         super(CharacterPredictor, self).__init__()
         """The network consists of a GRU Cell and a linear layer."""
-        self.gru = None # TODO
-        self.projection = None # TODO
-        self.num_classes =  None # TODO
-        self.hidden_dim = None # TODO 
+        self.gru = GRUCell(input_dim, hidden_dim)  # TODO
+        self.projection = Linear(hidden_dim, num_classes)  # TODO
+        self.num_classes = num_classes  # TODO
+        self.hidden_dim = hidden_dim  # TODO
         self.projection.W = np.random.rand(num_classes, hidden_dim)
 
     def init_rnn_weights(
@@ -53,13 +53,14 @@ class CharacterPredictor(object):
         hnext: (hidden_dim)
             hidden state at current time-step.
         """
-        hnext = None # TODO
+        hnext = self.gru.forward(x, h)  # TODO
         # self.projection expects input in the form of batch_size * input_dimension
         # Therefore, reshape the input of self.projection as (1,-1)
-        logits = None # TODO
-        # logits = logits.reshape(-1,) # uncomment once code implemented
-        # return logits, hnext
-        raise NotImplementedError
+        logits = self.projection.forward(hnext.reshape(1, -1))  # TODO
+        logits = logits.reshape(
+            -1,
+        )  # uncomment once code implemented
+        return logits, hnext
 
 
 def inference(net, inputs):
@@ -81,5 +82,17 @@ def inference(net, inputs):
             one per time step of input..
     """
     # TODO
-    # This code should not take more than 10 lines. 
-    raise NotImplementedError
+    # This code should not take more than 10 lines.
+
+    seq_len = inputs.shape[0]
+    num_classes = net.num_classes
+    logits = np.zeros((seq_len, num_classes))
+
+    h = np.zeros((net.hidden_dim,))
+
+    for t in range(seq_len):
+        x_t = inputs[t]
+        logit_t, h = net.forward(x_t, h)
+        logits[t] = logit_t
+
+    return logits
