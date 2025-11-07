@@ -82,7 +82,6 @@ class CTC(object):
         ------
         alpha: (np.array, dim = (input_len, 2 * target_len + 1))
                 forward probabilities
-
         """
 
         S, T = len(extended_symbols), len(logits)
@@ -104,8 +103,24 @@ class CTC(object):
         # Ensure proper indexing and multiplication with the relevant logit for the current state.
         # <---------------------------------------------
 
-        # return alpha
-        raise NotImplementedError
+        alpha[0][0] = logits[0, extended_symbols[0]]
+        alpha[0][1] = logits[0, extended_symbols[1]]
+
+        for t in range(1, T):
+            for s in range(S):
+                # Path from same symbol at t-1
+                alpha[t][s] = alpha[t - 1][s]
+
+                # Path from previous symbol at t-1
+                if s - 1 >= 0:
+                    alpha[t][s] += alpha[t - 1][s - 1]
+                # Path from skip connection symbol at t-1
+                if skip_connect[s] == 1 and s - 2 >= 0:
+                    alpha[t][s] += alpha[t - 1][s - 2]
+
+                alpha[t][s] *= logits[t, extended_symbols[s]]
+
+        return alpha
 
     def get_backward_probs(self, logits, extended_symbols, skip_connect):
         """Compute backward probabilities.
@@ -150,8 +165,26 @@ class CTC(object):
         # TODO
         # <--------------------------------------------
 
-        # return beta
-        raise NotImplementedError
+        beta[T - 1][S - 1] = 1.0
+        beta[T - 1][S - 2] = 1.0
+        for t in range(T - 2, -1, -1):
+            for s in range(S - 1, -1, -1):
+                # Path to same symbol at t+1
+                beta[t][s] = beta[t + 1][s] * logits[t + 1, extended_symbols[s]]
+
+                # Path to next symbol at t+1
+                if s + 1 < S:
+                    beta[t][s] += (
+                        beta[t + 1][s + 1] * logits[t + 1, extended_symbols[s + 1]]
+                    )
+
+                # Path to skip connection symbol at t+1
+                if s + 2 < S and skip_connect[s + 2] == 1:
+                    beta[t][s] += (
+                        beta[t + 1][s + 2] * logits[t + 1, extended_symbols[s + 2]]
+                    )
+
+        return beta
 
     def get_posterior_probs(self, alpha, beta):
         """Compute posterior probabilities.
@@ -186,8 +219,14 @@ class CTC(object):
         # Remember to add a small numerical stability constant (epsilon) to the denominator.
         # <---------------------------------------------
 
-        # return gamma
-        raise NotImplementedError
+        for t in range(T):
+            for s in range(S):
+                gamma[t][s] = alpha[t][s] * beta[t][s]
+                sumgamma[t] += gamma[t][s]
+            for s in range(S):
+                gamma[t][s] /= sumgamma[t] + 1e-7
+
+        return gamma
 
 
 class CTCLoss(object):
@@ -272,16 +311,37 @@ class CTCLoss(object):
             # -------------------------------------------->
             # TODO
             # <---------------------------------------------
-            pass
+            cur_targets = target[batch_itr, : target_lengths[batch_itr]]
+            cur_logits = logits[: input_lengths[batch_itr], batch_itr, :]
+
+            extended_symbols, skip_connect = self.ctc.extend_target_with_blank(
+                cur_targets
+            )
+
+            alpha = self.ctc.get_forward_probs(
+                cur_logits, extended_symbols, skip_connect
+            )
+
+            beta = self.ctc.get_backward_probs(
+                cur_logits, extended_symbols, skip_connect
+            )
+
+            gamma = self.ctc.get_posterior_probs(alpha, beta)
+
+            div_all = 0.0
+            for t in range(input_lengths[batch_itr]):
+                div_t = 0.0
+                for s in range(len(extended_symbols)):
+                    div_t += -(gamma[t][s] * np.log(cur_logits[t][extended_symbols[s]]))
+                div_all += div_t
+            total_loss[batch_itr] = div_all
 
         total_loss = np.sum(total_loss) / B
-
-        # return total_loss
-        raise NotImplementedError
+        return total_loss
 
     def backward(self):
         """
-        CTC loss backard
+        CTC loss backward
 
         Calculate the gradients w.r.t the parameters and return the derivative
         w.r.t the inputs, xt and ht, to the cell.
