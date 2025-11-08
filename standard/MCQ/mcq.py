@@ -1,18 +1,18 @@
 def question_1():
-    return "B"
+    return "b"
 
 
 def question_2():
-    return "D"
+    return "c"
 
 
 def question_3():
-    return "B"
+    return "b"
 
 
 def question_4():
-    return "C"
+    return "b"
 
 
 def question_5():
-    return "A"
+    return "a"
